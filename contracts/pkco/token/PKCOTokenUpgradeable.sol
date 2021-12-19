@@ -1,11 +1,17 @@
-// SPDX-License-Identifier: MIT
-// OpenZeppelin Contracts v4.3.2 (token/ERC20/ERC20.sol)
-
+//SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8.0;
 
-import "./IERC20.sol";
-import "./extensions/IERC20Metadata.sol";
-import "../../utils/Context.sol";
+import "@openzeppelin/contract-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import "@openzeppelin/contract-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
+
+import "@openzeppelin/contract-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contract-upgradeable/utils/ContextUpgradeable.sol";
+
+import "./extensions/CharityUpgradeable.sol";
+import "./extensions/RaffleUpgradeable.sol";
+import "./extensions/ReflectionUpgradeable.sol";
+
+import "hardhat/console.sol";
 
 /**
  * @dev Implementation of the {IERC20} interface.
@@ -32,15 +38,18 @@ import "../../utils/Context.sol";
  * functions have been added to mitigate the well-known issues around setting
  * allowances. See {IERC20-approve}.
  */
-contract ERC20 is Context, IERC20, IERC20Metadata {
-    mapping(address => uint256) private _balances;
-
-    mapping(address => mapping(address => uint256)) private _allowances;
-
-    uint256 private _totalSupply;
+contract PKCOTokenUpgradeable is 
+    IERC20Upgradeable, 
+    IERC20MetadataUpgradeable, 
+        ContextUpgradeable, 
+        OwnableUpgradeable, 
+            CharityUpgradeable, 
+            RaffleUpgradeable, 
+            ReflectionUpgradeable {
 
     string private _name;
     string private _symbol;
+    uint256 private _decimals;
 
     /**
      * @dev Sets the values for {name} and {symbol}.
@@ -51,9 +60,26 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * All two of these values are immutable: they can only be set once during
      * construction.
      */
-    constructor(string memory name_, string memory symbol_) {
+
+    // Upgradeable initializer
+    function initialize(string memory name_, string memory symbol_, uint256 decimals_, uint256 amount_, uint256 feePercent_, address charityAddress_) public initializer {
+                
+        // Extensions for ERC20
+        OwnableUpgradeable.__Ownable_init();
+        ContextUpgradeable.__Context_init();
+
+        // Values for PKCO MetaToken
         _name = name_;
         _symbol = symbol_;
+        _decimals = decimals_;
+
+        // PKCO Extensions
+        CharityUpgradeable.__Charity_init(charityAddress_);
+        RaffleUpgradeable.__Raffle_init();
+
+        // Reflection Implementation
+        ReflectionUpgradeable.__Reflection_init(amount_, decimals_, feePercent_);
+
     }
 
     /**
@@ -92,14 +118,17 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * @dev See {IERC20-totalSupply}.
      */
     function totalSupply() public view virtual override returns (uint256) {
-        return _totalSupply;
+        
+        return _tTotal;
+
     }
 
     /**
      * @dev See {IERC20-balanceOf}.
      */
     function balanceOf(address account) public view virtual override returns (uint256) {
-        return _balances[account];
+        return tokenFromReflection(_rOwned[account]);
+
     }
 
     /**
@@ -110,8 +139,8 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * - `recipient` cannot be the zero address.
      * - the caller must have a balance of at least `amount`.
      */
-    function transfer(address recipient, uint256 amount) public virtual override returns (bool) {
-        _transfer(_msgSender(), recipient, amount);
+    function transfer(address recipient, uint256 tAmount) public virtual override returns (bool) {
+        _transfer(_msgSender(), recipient, tAmount);
         return true;
     }
 
@@ -155,10 +184,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
         _transfer(sender, recipient, amount);
 
         uint256 currentAllowance = _allowances[sender][_msgSender()];
-        require(currentAllowance >= amount, "ERC20: transfer over allowance");
-        unchecked {
-            _approve(sender, _msgSender(), currentAllowance - amount);
-        }
+        _approve(sender, _msgSender(), currentAllowance - amount);
 
         return true;
     }
@@ -196,10 +222,7 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      */
     function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
         uint256 currentAllowance = _allowances[_msgSender()][spender];
-        require(currentAllowance >= subtractedValue, "ERC20: allowance below zero");
-        unchecked {
-            _approve(_msgSender(), spender, currentAllowance - subtractedValue);
-        }
+        _approve(_msgSender(), spender, currentAllowance - subtractedValue);
 
         return true;
     }
@@ -221,44 +244,26 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
     function _transfer(
         address sender,
         address recipient,
-        uint256 amount
+        uint256 tAmount
     ) internal virtual {
         require(sender != address(0), "ERC20: transfer from zero");
         require(recipient != address(0), "ERC20: transfer to zero");
+        require(tAmount > 0, "Amount must be greater than zero");
 
-        _beforeTokenTransfer(sender, recipient, amount);
+        uint256 senderBalance = balanceOf(sender);
+        require(senderBalance >= tAmount, "ERC20: transfer exceeds balance");
 
-        uint256 senderBalance = _balances[sender];
-        require(senderBalance >= amount, "ERC20: transfer exceeds balance");
-        //unchecked {
-            _balances[sender] = senderBalance - amount;
-        //}
-        _balances[recipient] += amount;
+        uint256 rSplit = reflectionFromToken(tAmount) / 4;
 
-        emit Transfer(sender, recipient, amount);
+        _raffleBalance += rSplit;
+        _charityBalance += rSplit;
+        _rOwned[sender] -= 2 * rSplit;
 
-        _afterTokenTransfer(sender, recipient, amount);
-    }
+        _burn(sender, rSplit);
+        _transferStandard(sender, recipient, rSplit);
 
-    /** @dev Creates `amount` tokens and assigns them to `account`, increasing
-     * the total supply.
-     *
-     * Emits a {Transfer} event with `from` set to the zero address.
-     *
-     * Requirements:
-     *
-     * - `account` cannot be the zero address.
-     */
-    function _mint(address account, uint256 amount) internal virtual {
-        require(account != address(0), "ERC20: mint to the zero address");
-
-        _beforeTokenTransfer(address(0), account, amount);
-
-        _totalSupply += amount;
-        _balances[account] += amount;
-        emit Transfer(address(0), account, amount);
-
-        _afterTokenTransfer(address(0), account, amount);
+        emit Transfer(sender, recipient, tokenFromReflection(rSplit));
+        _registerForRaffle(recipient);
     }
 
     /**
@@ -272,21 +277,20 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
      * - `account` cannot be the zero address.
      * - `account` must have at least `amount` tokens.
      */
-    function _burn(address account, uint256 amount) internal virtual {
+    function _burn(address account, uint256 rAmount) internal {
         require(account != address(0), "ERC20: burn from zero");
 
-        _beforeTokenTransfer(account, address(0), amount);
+        uint256 accountBalance = _rOwned[account];
+        require(accountBalance >= rAmount, "ERC20: burn exceeds balance");
 
-        uint256 accountBalance = _balances[account];
-        require(accountBalance >= amount, "ERC20: burn exceeds balance");
-        unchecked {
-            _balances[account] = accountBalance - amount;
-        }
-        _totalSupply -= amount;
+        _rOwned[account] -= rAmount;
+        _rTotal -= rAmount;
 
-        emit Transfer(account, address(0), amount);
+        uint256 tAmount = tokenFromReflection(rAmount);
+        _tTotal -= tAmount;
 
-        _afterTokenTransfer(account, address(0), amount);
+        emit Transfer(account, address(0), tAmount);
+
     }
 
     /**
@@ -305,52 +309,57 @@ contract ERC20 is Context, IERC20, IERC20Metadata {
     function _approve(
         address owner,
         address spender,
-        uint256 amount
+        uint256 tAmount
     ) internal virtual {
         require(owner != address(0), "ERC20: approve from zero");
         require(spender != address(0), "ERC20: approve to zero");
 
-        _allowances[owner][spender] = amount;
-        emit Approval(owner, spender, amount);
+        _allowances[owner][spender] = tAmount;
+        emit Approval(owner, spender, tAmount);
     }
 
-    /**
-     * @dev Hook that is called before any transfer of tokens. This includes
-     * minting and burning.
-     *
-     * Calling conditions:
-     *
-     * - when `from` and `to` are both non-zero, `amount` of ``from``'s tokens
-     * will be transferred to `to`.
-     * - when `from` is zero, `amount` tokens will be minted for `to`.
-     * - when `to` is zero, `amount` of ``from``'s tokens will be burned.
-     * - `from` and `to` are never both zero.
-     *
-     * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
-     */
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
-    ) internal virtual {}
+    // -------------------------
+    /*
+    *     CHARITY FUNCTIONS
+    */
+    // -------------------------
+    function charityBalance() public override view returns (uint256) {
+        return tokenFromReflection(_charityBalance);
+    }
+    function claimCharity() public override {
+        _rOwned[_charityAddress] += _charityBalance;
+        _charityBalance = 0;
+    }
 
-    /**
-     * @dev Hook that is called after any transfer of tokens. This includes
-     * minting and burning.
-     *
-     * Calling conditions:
-     *
-     * - when `from` and `to` are both non-zero, `amount` of ``from``'s tokens
-     * has been transferred to `to`.
-     * - when `from` is zero, `amount` tokens have been minted for `to`.
-     * - when `to` is zero, `amount` of ``from``'s tokens have been burned.
-     * - `from` and `to` are never both zero.
-     *
-     * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
-     */
-    function _afterTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
-    ) internal virtual {}
+    // -------------------------
+    /*
+    *     RAFFLE FUNCTIONS
+    */
+    // -------------------------
+    function raffleBalance() public override view returns (uint256) {
+        return tokenFromReflection(_raffleBalance);
+    }
+    function _claimRaffle(uint256 entry, address account) internal override {
+
+        RaffleEntry storage raffle = _raffleHistory[entry];
+
+        if( _claimedRaffle[entry][account] ){ return; }
+        if( !isEligible(raffle._raffleTime, account) ){ return; }
+
+        // Force remaining credit without throwing
+        uint256 remainingCredit = raffle._reservedAmount - raffle._claimedAmount;
+        if(remainingCredit == 0) return;
+
+        // Refuse to overflow total Raffle claims
+        uint256 claimedAmount = raffle._maxClaim;
+        if(claimedAmount > remainingCredit){ claimedAmount = remainingCredit; }
+
+        // Assign the entire claim and update the Raffle
+        _rOwned[account] += claimedAmount;
+        raffle._claimedAmount += claimedAmount;
+
+        _claimedRaffle[entry][account] = true;
+
+    }
+
 }

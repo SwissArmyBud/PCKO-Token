@@ -2,5 +2,7 @@
     "name": "PKCO Token",
     "symbol": "PKCO",
     "decimals": 18,
-    "totalSupply": 3700000000000
+    "totalSupply": 3700000000000,
+    "reflectionPercent": 4,
+    "charityAddress": 10
 }

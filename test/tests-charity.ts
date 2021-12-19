@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { upgrades, ethers } from "hardhat";
 
 
 let NOT_FUNCTION = "not a function";
@@ -12,8 +12,16 @@ let log = function(o : any){
 let contractDefaults = require("../contracts/pkco/contractDefaults.json")
 
 let getDeployDefaultContract = async () => {
-  let factory = await ethers.getContractFactory("PKCOToken")
-  let contract = await factory.deploy(contractDefaults.name, contractDefaults.symbol, contractDefaults.totalSupply);
+  let pkcoFactory = await ethers.getContractFactory("PKCOTokenUpgradeable")
+  // initialize(string memory name_, string memory symbol_, uint256 decimals_, uint256 amount_, uint256 feePercent_, address charityAddress_)
+  let contract = await upgrades.deployProxy(pkcoFactory,[
+    contractDefaults.name,
+    contractDefaults.symbol,
+    contractDefaults.decimals.toString(),
+    contractDefaults.totalSupply,
+    contractDefaults.reflectionPercent,
+    ((await ethers.getSigners())[contractDefaults.charityAddress].address)
+  ]);
   await contract.deployed();
   return contract;
 }

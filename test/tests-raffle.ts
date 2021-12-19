@@ -1,5 +1,7 @@
+import { BigNumber } from "@ethersproject/bignumber";
+import { deploy } from "@openzeppelin/hardhat-upgrades/dist/utils";
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { upgrades, ethers } from "hardhat";
 
 
 let NOT_FUNCTION = "not a function";
@@ -9,11 +11,27 @@ let log = function(o : any){
   console.log("[RAFFLE] -> " + o)
 }
 
+let ethFromWei = function(wei : any) : any {
+  return (wei / (10 ** contractDefaults.decimals))
+}
+
+let weiFromEth = function(eth : any) : any {
+  return BigInt(eth) * BigInt(10 ** contractDefaults.decimals);
+}
+
 let contractDefaults = require("../contracts/pkco/contractDefaults.json")
 
 let getDeployDefaultContract = async () => {
-  let factory = await ethers.getContractFactory("PKCOToken")
-  let contract = await factory.deploy(contractDefaults.name, contractDefaults.symbol, contractDefaults.totalSupply);
+  let pkcoFactory = await ethers.getContractFactory("PKCOTokenUpgradeable")
+  // initialize(string memory name_, string memory symbol_, uint256 decimals_, uint256 amount_, uint256 feePercent_, address charityAddress_)
+  let contract = await upgrades.deployProxy(pkcoFactory,[
+    contractDefaults.name,
+    contractDefaults.symbol,
+    contractDefaults.decimals,
+    contractDefaults.totalSupply,
+    contractDefaults.reflectionPercent,
+    ((await ethers.getSigners())[contractDefaults.charityAddress].address)
+  ]);
   await contract.deployed();
   return contract;
 }
@@ -22,7 +40,7 @@ export const tests = () => {
   {
 
     let deployedContract : any;
-    let checkBalance = async (ad : any, am : any) => expect(await deployedContract.balanceOf(ad)).to.equal(am);
+    let checkBalance = async (ad : any, am : any) => expect(ethFromWei(await deployedContract.balanceOf(ad))).to.equal(am);
   
     beforeEach(async function(){
       deployedContract = await getDeployDefaultContract();
@@ -48,7 +66,7 @@ export const tests = () => {
       let testErrs : Array<Error> = [];
       let [owner, act1, act2] = await ethers.getSigners();
   
-      let testBalance = 1000;
+      let testBalance = 120000;
   
       // No default balance
       expect(await deployedContract.raffleBalance())
@@ -58,18 +76,17 @@ export const tests = () => {
       await checkBalance(act1.address, 0);
   
       try{
-        await deployedContract.connect(owner).transfer(act1.address, testBalance)
+        await deployedContract.connect(owner).transfer(act1.address, weiFromEth(testBalance));
       } catch (e : any) {
         testErrs.push(e)
       }
     
-      // Approve throws an error and the allowance/balances are unchanged
       expect(testErrs.length).to.equal(0);
+    
+      await checkBalance(owner.address, 3699999881200);
+      await checkBalance(act1.address, 28800.00000934054);
       expect(await deployedContract.raffleBalance())
-        .to.equal(testBalance / 4);
-  
-      await checkBalance(owner.address, contractDefaults.totalSupply - testBalance);
-      await checkBalance(act1.address, testBalance/4);
+        .to.equal(BigInt("30000000009729727839532"));
   
     });
   
@@ -80,23 +97,24 @@ export const tests = () => {
   
       let testBalance = 120000;
       
-      await deployedContract.connect(owner).transfer(act1.address, testBalance);
+      await deployedContract.connect(owner).transfer(act1.address, weiFromEth(testBalance/1));
+      await deployedContract.connect(act1).transfer(act2.address, weiFromEth(testBalance/5));
+      await deployedContract.connect(act2).transfer(act3.address, weiFromEth(testBalance/25));
+      await deployedContract.connect(act3).transfer(act4.address, weiFromEth(testBalance/125));
+      await deployedContract.connect(act4).transfer(act5.address, weiFromEth(testBalance/625));
+      expect(await deployedContract.raffleBalance())
+        .to.equal(BigInt("37488000012664052354308"));
+      
       // Try to run a raffle
       try{
-        await deployedContract.connect(owner).runRaffle(testBalance / 10);
+        let maxClaim = BigInt(10 ** contractDefaults.decimals) / BigInt(1000);
+        await deployedContract.connect(owner).runRaffle(maxClaim);
       } catch (e : any) {
         console.log(e)
         testErrs.push(e)
       }
       expect(testErrs.length)
         .to.equal(0);
-    
-      await checkBalance(owner.address, contractDefaults.totalSupply - testBalance);
-      let tokenomicsValue = testBalance / 4;
-      await checkBalance(act1.address, testBalance - ( 3 * tokenomicsValue ));
-      expect(testErrs.length).to.equal(0);
-      expect(await deployedContract.raffleBalance())
-        .to.equal(tokenomicsValue / 3);
   
     });
 
@@ -140,9 +158,6 @@ export const tests = () => {
         .to.equal(0);
   
     });
-
-    it("Should be able to run raffle as owner", async function () {});
-  
   
   }
 }

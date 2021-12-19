@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { upgrades, ethers } from "hardhat";
 
 
 let NOT_FUNCTION = "not a function";
@@ -9,11 +9,23 @@ let log = function(o : any){
   console.log("[ILLEGAL] -> " + o)
 }
 
+let ethFromWei = function(wei : any) : any {
+  return (wei / (10 ** contractDefaults.decimals))
+}
+
 let contractDefaults = require("../contracts/pkco/contractDefaults.json")
 
 let getDeployDefaultContract = async () => {
-  let factory = await ethers.getContractFactory("PKCOToken")
-  let contract = await factory.deploy(contractDefaults.name, contractDefaults.symbol, contractDefaults.totalSupply);
+  let pkcoFactory = await ethers.getContractFactory("PKCOTokenUpgradeable")
+  // initialize(string memory name_, string memory symbol_, uint256 decimals_, uint256 amount_, uint256 feePercent_, address charityAddress_)
+  let contract = await upgrades.deployProxy(pkcoFactory,[
+    contractDefaults.name,
+    contractDefaults.symbol,
+    contractDefaults.decimals,
+    contractDefaults.totalSupply,
+    contractDefaults.reflectionPercent,
+    ((await ethers.getSigners())[contractDefaults.charityAddress].address)
+  ]);
   await contract.deployed();
   return contract;
 }
@@ -21,8 +33,8 @@ let getDeployDefaultContract = async () => {
 export const tests = () => {
 
     let deployedContract : any;
-    let checkSupply = async () => expect(await deployedContract.totalSupply()).to.equal(contractDefaults.totalSupply);
-    let checkBalance = async (ad : any, am : any) => expect(await deployedContract.balanceOf(ad)).to.equal(am);
+    let checkSupply = async () => expect(ethFromWei(await deployedContract.totalSupply())).to.equal(contractDefaults.totalSupply);
+    let checkBalance = async (ad : any, am : any) => expect(ethFromWei(await deployedContract.balanceOf(ad))).to.equal(am);
     let checkAllowance = async (owner : any, spender: any, amt : any) => expect(await deployedContract.allowance(owner, spender)).to.equal(amt);
   
     beforeEach(async function(){

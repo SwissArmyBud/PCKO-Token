@@ -1,0 +1,34 @@
+
+> pkco@1.0.0 test
+> export NODE_OPTIONS=--openssl-legacy-provider && npx hardhat test
+
+No need to generate any newer typings.
+
+
+  Basic Token Features
+    ✓ Should be named correctly -> PKCO Token
+    ✓ Should have the correct symbol -> PKCO
+    ✓ Should have correct decimal places -> 18
+    ✓ Should have correct supply -> 3.7T
+    ✓ Should be allocated to the contract owner
+    ✓ Should be able to send funds to other users (118ms)
+
+  Charity Token Features
+    ✓ Should be able to set charity details as owner -> Per JSON
+
+  Raffle Token Features
+    ✓ Should have correct history on deployment
+    ✓ Should have correct balance after transfer (67ms)
+    ✓ Should be able to run raffle as owner (197ms)
+    ✓ Should have the correct eligibility
+    ✓ Should have correct history after raffle is executed
+
+  Illegal Contract Interactions
+    ✓ Should not be able to mint more tokens
+    ✓ Should not be able to transfer more tokens than are owned (89ms)
+    ✓ Should not be able to use a token approval attack to gain tokens (87ms)
+    ✓ Should not be able to change charity without being token owner (108ms)
+
+
+  16 passing (5s)
+

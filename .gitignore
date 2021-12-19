@@ -8,5 +8,5 @@ typechain
 cache
 artifacts
 
-# Node
-/node_modules
+# Custom
+todo.md

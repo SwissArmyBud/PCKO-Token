@@ -1,7 +1,7 @@
 {
   "name": "pkco",
   "version": "1.0.0",
-  "description": "PKCO Crypto Contract Project",
+  "description": "PKCO Crypto Token Project",
   "main": "index.js",
   "scripts": {
     "test": "export NODE_OPTIONS=--openssl-legacy-provider && npx hardhat test"
@@ -12,6 +12,8 @@
     "@nomiclabs/hardhat-ethers": "^2.0.2",
     "@nomiclabs/hardhat-etherscan": "^2.1.7",
     "@nomiclabs/hardhat-waffle": "^2.0.1",
+    "@openzeppelin/contracts-upgradeable": "^4.4.1",
+    "@openzeppelin/hardhat-upgrades": "^1.12.0",
     "@typechain/ethers-v5": "^7.2.0",
     "@typechain/hardhat": "^2.3.1",
     "@types/chai": "^4.2.22",
