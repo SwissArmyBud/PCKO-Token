@@ -35,6 +35,9 @@ abstract contract RaffleUpgradeable is ContextUpgradeable, OwnableUpgradeable {
     // Internal list of all Raffle events and a public getter for specific events
     RaffleEntry[] internal _raffleHistory;
 
+    event RunRaffle(uint256 id);
+    event CloseRaffle(uint256 id);
+
     function __Raffle_init() internal initializer {
         _registrationPools.push(0); _registrationPools.push(0); _registrationPools.push(0);
     }
@@ -70,8 +73,9 @@ abstract contract RaffleUpgradeable is ContextUpgradeable, OwnableUpgradeable {
         entry._maxClaim = maxClaim;
         entry._claimedAmount = 0;
         
-        // Attach to history
+        // Attach to history and emit
         _raffleHistory.push(entry);
+        emit RunRaffle(_raffleHistory.length - 1);
 
     }
 
@@ -106,7 +110,9 @@ abstract contract RaffleUpgradeable is ContextUpgradeable, OwnableUpgradeable {
             _raffleBalance += remainingAmount;
             raffle._reservedAmount = raffle._claimedAmount;
         }
-        
+
+        // Emit
+        emit CloseRaffle(entry);
     }
 
     function isEligible(uint256 raffleTime, address account) public pure returns (bool) {

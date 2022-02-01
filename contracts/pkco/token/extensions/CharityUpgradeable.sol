@@ -13,6 +13,8 @@ abstract contract CharityUpgradeable is Initializable, OwnableUpgradeable {
     address internal _charityAddress;
     uint256 internal _charityBalance;
 
+    event ResetCharity(address current, address next);
+
     function __Charity_init(address charityAddress_) internal initializer {
         _charityAddress = charityAddress_;
         _charityBalance = 0;
@@ -25,6 +27,7 @@ abstract contract CharityUpgradeable is Initializable, OwnableUpgradeable {
     function _donateCharity(uint256 amount_) internal { _charityBalance += amount_; }
     function claimCharity() public virtual;
     function resetCharity(address address_, string memory name_) public onlyOwner {
+        emit ResetCharity(_charityAddress, address_);
         claimCharity();
         _charityName = name_;
         _charityAddress = address_;
