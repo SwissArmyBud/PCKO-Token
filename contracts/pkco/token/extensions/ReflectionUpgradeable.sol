@@ -13,8 +13,6 @@ abstract contract ReflectionUpgradeable is IERC20Upgradeable, ContextUpgradeable
 
     mapping (address => uint256) internal _rOwned;
     mapping(address => mapping(address => uint256)) internal _allowances;
-
-    mapping (address => bool) internal _isExcluded;
    
     uint256 internal _tTotal;
     uint256 internal _rTotal;
@@ -24,9 +22,6 @@ abstract contract ReflectionUpgradeable is IERC20Upgradeable, ContextUpgradeable
 
     function __Reflection_init(uint256 amount_, uint256 decimals_, uint256 feePercent_) public initializer {
 
-        excludeAccount(owner());
-        excludeAccount(address(this));
-
         _tTotal = amount_ * ( 10 ** decimals_ );
         _rTotal = (~uint256(0) - (~uint256(0) % _tTotal));
 
@@ -35,10 +30,6 @@ abstract contract ReflectionUpgradeable is IERC20Upgradeable, ContextUpgradeable
 
         _tFeeTotal = 0;
         _feeDivisor = 100 / feePercent_;
-    }
-
-    function isExcluded(address account) public view returns (bool) {
-        return _isExcluded[account];
     }
 
     function totalFees() public view returns (uint256) {
@@ -51,16 +42,6 @@ abstract contract ReflectionUpgradeable is IERC20Upgradeable, ContextUpgradeable
 
     function tokenFromReflection(uint256 rAmount) public view returns(uint256) {
         return rAmount / _getRate();
-    }
-
-    function excludeAccount(address account) public onlyOwner() {
-        require(!_isExcluded[account], "Account is already excluded");
-        _isExcluded[account] = true;
-    }
-
-    function includeAccount(address account) public onlyOwner() {
-        require(_isExcluded[account], "Account is already included");
-        _isExcluded[account] = false;
     }
 
     function _transferStandard(address sender, address recipient, uint256 rAmount) internal {
