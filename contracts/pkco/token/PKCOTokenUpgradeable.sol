@@ -49,7 +49,7 @@ contract PKCOTokenUpgradeable is
 
     string private _name;
     string private _symbol;
-    uint256 private _decimals;
+    uint8 private _decimals;
 
     /**
      * @dev Sets the values for {name} and {symbol}.
@@ -62,7 +62,7 @@ contract PKCOTokenUpgradeable is
      */
 
     // Upgradeable initializer
-    function initialize(string memory name_, string memory symbol_, uint256 decimals_, uint256 amount_, uint256 feePercent_, address charityAddress_) public initializer {
+    function initialize(string memory name_, string memory symbol_, uint8 decimals_, uint256 amount_, uint256 feePercent_, address charityAddress_) public initializer {
                 
         // Extensions for ERC20
         OwnableUpgradeable.__Ownable_init();
@@ -255,14 +255,17 @@ contract PKCOTokenUpgradeable is
 
         uint256 rSplit = reflectionFromToken(tAmount) / 4;
 
+        // Contribute to raffle and charity
         _raffleBalance += rSplit;
         _charityBalance += rSplit;
+
+        // Debit sender and emit
         _rOwned[sender] -= 2 * rSplit;
+        emit Transfer(sender, address(0), 2 * rSplit);
 
         _burn(sender, rSplit);
         _transferStandard(sender, recipient, rSplit);
 
-        emit Transfer(sender, recipient, tokenFromReflection(rSplit));
         _registerForRaffle(recipient);
     }
 
@@ -327,7 +330,10 @@ contract PKCOTokenUpgradeable is
         return tokenFromReflection(_charityBalance);
     }
     function claimCharity() public override {
+        // Claim and emit
         _rOwned[_charityAddress] += _charityBalance;
+        emit Transfer(address(0), _charityAddress, tokenFromReflection(_charityBalance));
+        // Reset balance
         _charityBalance = 0;
     }
 
@@ -354,9 +360,10 @@ contract PKCOTokenUpgradeable is
         uint256 claimedAmount = raffle._maxClaim;
         if(claimedAmount > remainingCredit){ claimedAmount = remainingCredit; }
 
-        // Assign the entire claim and update the Raffle
-        _rOwned[account] += claimedAmount;
+        // Update the raffle, issue the claim, and emit
         raffle._claimedAmount += claimedAmount;
+        _rOwned[account] += claimedAmount;
+        emit Transfer(address(0), account, tokenFromReflection(claimedAmount));
 
         _claimedRaffle[entry][account] = true;
 
