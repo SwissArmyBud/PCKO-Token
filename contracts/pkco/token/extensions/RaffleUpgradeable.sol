@@ -10,6 +10,9 @@ import "hardhat/console.sol";
 
 abstract contract RaffleUpgradeable is ContextUpgradeable, OwnableUpgradeable {
 
+    // Raffle Claim Event
+    event Raffle(address, uint256);
+
     // Raffle account tracking
     mapping(address => uint256) internal _registration;
     uint256[] internal _registrationPools;

@@ -47,6 +47,9 @@ contract PKCOTokenUpgradeable is
             RaffleUpgradeable, 
             ReflectionUpgradeable {
 
+    // Announce Donations on Transfer
+    event Donate(address, uint256);
+
     string private _name;
     string private _symbol;
     uint8 private _decimals;
@@ -261,11 +264,15 @@ contract PKCOTokenUpgradeable is
 
         // Debit sender and emit
         _rOwned[sender] -= 2 * rSplit;
-        emit Transfer(sender, address(0), 2 * rSplit);
+        emit Donate(sender, tokenFromReflection(2 * rSplit));
 
+        // Burn share
         _burn(sender, rSplit);
+
+        // Transfer share
         _transferStandard(sender, recipient, rSplit);
 
+        // Registration gate for raffle
         _registerForRaffle(recipient);
     }
 
@@ -332,7 +339,7 @@ contract PKCOTokenUpgradeable is
     function claimCharity() public override {
         // Claim and emit
         _rOwned[_charityAddress] += _charityBalance;
-        emit Transfer(address(0), _charityAddress, tokenFromReflection(_charityBalance));
+        emit Charity(_charityAddress, tokenFromReflection(_charityBalance));
         // Reset balance
         _charityBalance = 0;
     }
@@ -363,7 +370,7 @@ contract PKCOTokenUpgradeable is
         // Update the raffle, issue the claim, and emit
         raffle._claimedAmount += claimedAmount;
         _rOwned[account] += claimedAmount;
-        emit Transfer(address(0), account, tokenFromReflection(claimedAmount));
+        emit Raffle(account, tokenFromReflection(claimedAmount));
 
         _claimedRaffle[entry][account] = true;
 

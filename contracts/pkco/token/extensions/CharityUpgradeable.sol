@@ -9,6 +9,9 @@ import "hardhat/console.sol";
 
 abstract contract CharityUpgradeable is Initializable, OwnableUpgradeable {
 
+    // Charity Claim Event
+    event Charity(address, uint256);
+
     string private _charityName;
     address internal _charityAddress;
     uint256 internal _charityBalance;
