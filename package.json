@@ -4,7 +4,7 @@
   "description": "PKCO Crypto Token Project",
   "main": "index.js",
   "scripts": {
-    "test": "export NODE_OPTIONS=--openssl-legacy-provider && npx hardhat test"
+    "test": "export NODE_OPTIONS=--openssl-legacy-provider && npx hardhat test > ./TestResults.txt"
   },
   "author": "Andrew Porter",
   "license": "NONE",
